@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="/layui/css/layui.css">
+    <script src="layui/layui.js"></script>
+</head>
+<body>
+<div class="layui-container">
+    <div class="layui-row">
+        <table id="demo" lay-filter="test"></table>
+    </div>
+</div>
+
+<script type="text/html" id="barDemo">
+    <a class="layui-btn layui-btn-xs" lay-event="edittool">编辑</a>
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="deltool">删除</a>
+</script>
+
+<script type="text/html" id="bar">
+    搜索ID：
+    <div class="layui-inline">
+        <input class="layui-input" name="id" id="demoReload" autocomplete="off">
+    </div>
+    <button class="layui-btn layui-btn-sm layui-btn-normal" data-type="reload" id="search" lay-event="search"><i class="layui-icon">&#xe615;</i>搜索</button>
+    <button type="button" class="layui-btn layui-btn-sm" lay-event="add"><i class="layui-icon">&#xe654;</i>增加</button>
+    <button type="button" class="layui-btn layui-btn-sm layui-btn-warm" lay-event="edit" id="edit"><i class="layui-icon">&#xe642;</i>编辑</button>
+    <button type="button" class="layui-btn layui-btn-sm layui-btn-danger" lay-event="del"><i class="layui-icon">&#x1006;</i>批量删除</button>
+</script>
+
+
+<script>
+    layui.use(['table','layer'], function(){
+        var table = layui.table;
+        var layer = layui.layer;
+
+        //table渲染
+        table.render({
+            elem: '#demo'
+            ,url: '/employee_find' //数据接口
+            ,page: true //开启分页
+            ,toolbar: '#bar'
+            ,id: 'testReload'
+            ,cols: [
+                [ //表头
+                    {type:'checkbox'}
+                    ,{field: 'id', title: 'ID', sort: true}
+                    ,{field: 'name', title: '用户名'}
+                    ,{field: 'tel', title: '电话', sort: true}
+                    ,{field: 'address', title: '居住地'}
+                    ,{field: 'money', title: '月薪'}
+                    ,{fixed: 'right', title:'操作', toolbar: '#barDemo'}
+                ]
+            ]});
+
+        //监听头部工具栏点击事件
+        //注意：lay-filter="test"和lay-event="add"
+        table.on('toolbar(test)', function(obj){
+            var checkStatus = table.checkStatus(obj.config.id);
+            switch(obj.event){
+                case 'add':
+                    add();
+                    break;
+                case 'edit':
+                    edit();
+                    break;
+                case 'del':
+                    del();
+                    break;
+                case 'search':
+                    search();
+                    break;
+            }
+        });
+
+        //监听每一行的点击操作
+        table.on('tool(test)', function(obj){
+            var data = obj.data;
+            if(obj.event === 'edittool'){
+                // console.log(obj.data);
+                // layer.msg('ID：'+ data.id + ' 的编辑操作');
+                layer.open({
+                    title: '编辑用户',
+                    type: 2,
+                    btn: ['确定', '取消'],
+                    shade: 0.2,
+                    maxmin:true,
+                    shadeClose: true,
+                    area: ['70%', '60%'],
+                    content: '/edit.html',
+                    yes: function(index, layero){
+                        let body = layui.layer.getChildFrame('body', index);
+                        let id =body.find("#id").val();
+                        let name =body.find("#name").val();
+                        let tel =body.find("#tel").val();
+                        let address =body.find("#address").val();
+                        let money =body.find("#money").val();
+                        layui.$.ajax({
+                            url: "employee_update",
+                            data: JSON.stringify({"id": id,"name": name,"tel": tel,"address": address,"money": money}),
+                            type: "post",
+                            dataType: "json",
+                            contentType: "application/json",
+                            success: function(result){
+                                if(result.code == 0){
+                                    reload(0,"/employee_find");
+                                    layer.close(index);
+                                    layer.msg('编辑成功！');
+                                }
+                            }
+                        });
+                    },
+                    success: function (layero, index) {
+                        var body = layui.layer.getChildFrame('body', index);
+                        body.find("#id").val(obj.data.id);
+                        body.find("#name").val(obj.data.name);
+                        body.find("#tel").val(obj.data.tel);
+                        body.find("#address").val(obj.data.address);
+                        body.find("#money").val(obj.data.money);
+                        // form.render();
+                    }
+                });
+            } else if(obj.event === 'deltool'){
+                layer.confirm('亲,真的要删除这行吗？', function(index){
+                    obj.del(); //删除对应行（tr）的DOM结构，并更新缓存
+                    layer.close(index);
+                    console.log(obj.data.id);
+                    reload(obj.data.id,'/employee_del');
+                    layer.msg('删除成功！');
+                });
+            }
+        });
+
+        //头部工具栏具体事件
+        function add() {
+            layer.open({
+                title: '添加用户',
+                type: 2,
+                btn: ['确定', '取消'],
+                shade: 0.2,
+                maxmin:true,
+                shadeClose: true,
+                area: ['70%', '60%'],
+                content: '/edit.html',
+                yes: function(index, layero){
+                    let body = layui.layer.getChildFrame('body', index);
+                    let id =body.find("#id").val();
+                    let name =body.find("#name").val();
+                    let tel =body.find("#tel").val();
+                    let address =body.find("#address").val();
+                    let money =body.find("#money").val();
+                    layui.$.ajax({
+                        url: "employee_add",
+                        data: JSON.stringify({"id": id,"name": name,"tel": tel,"address": address,"money": money}),
+                        type: "post",
+                        dataType: "json",
+                        contentType: "application/json",
+                        success: function(result){
+                            if(result.code == 0){
+                                reload(0,"/employee_find");
+                                layer.close(index);
+                                layer.msg('添加成功！');
+                            }
+                        }
+                    });
+                }
+            });
+        }
+        function edit() {
+            var checkStatus = table.checkStatus('testReload');
+            if(checkStatus.data.length==1){
+                layer.open({
+                    title: '编辑用户',
+                    type: 2,
+                    btn: ['确定', '取消'],
+                    shade: 0.2,
+                    maxmin:true,
+                    shadeClose: true,
+                    area: ['70%', '60%'],
+                    content: '/edit.html',
+                    yes: function(index, layero){
+                        let body = layui.layer.getChildFrame('body', index);
+                        let id =body.find("#id").val();
+                        let name =body.find("#name").val();
+                        let tel =body.find("#tel").val();
+                        let address =body.find("#address").val();
+                        let money =body.find("#money").val();
+                        layui.$.ajax({
+                            url: "employee_update",
+                            data: JSON.stringify({"id": id,"name": name,"tel": tel,"address": address,"money": money}),
+                            type: "post",
+                            dataType: "json",
+                            contentType: "application/json",
+                            success: function(result){
+                                if(result.code == 0){
+                                    reload(0,"/employee_find");
+                                    layer.close(index);
+                                    layer.msg('编辑成功！');
+                                }
+                            }
+                        });
+                    },
+                    success: function (layero, index) {
+                        var body = layui.layer.getChildFrame('body', index);
+                        body.find("#id").val(checkStatus.data[0].id);
+                        body.find("#name").val(checkStatus.data[0].name);
+                        body.find("#tel").val(checkStatus.data[0].tel);
+                        body.find("#address").val(checkStatus.data[0].address);
+                        body.find("#money").val(checkStatus.data[0].money);
+                    }
+                });
+            }
+            else if(checkStatus.data.length==0){
+                layer.msg('你还未进行选择');
+            }
+            else{
+                layer.msg('只能选择一个进行修改');
+            }
+        }
+        function del() {
+            var checkStatus = table.checkStatus('testReload');
+            // console.log(checkStatus.data);
+            if(checkStatus.data.length > 0){
+                let array = new Array();
+                for(let j=0; j<checkStatus.data.length; j++){
+                    array.push(checkStatus.data[j].id);
+                }
+                layer.confirm('你真要删除这些数据吗?', {icon: 2, title:'提示'}, function(index){
+                    reload(array,'/employee_mostdel');
+                    layer.close(index);
+                    layer.msg('删除成功！');
+                });
+            }
+            else {
+                layer.msg('你还未进行选择');
+            }
+        }
+        function search() {
+            let val=document.getElementById('demoReload').value;
+            reload(val,'/employee_search');
+            document.getElementById('demoReload').value = val;
+            layer.msg('搜索成功！');
+        }
+
+        //事件重载
+        function reload(i,str) {
+            table.reload('testReload', {
+                url: str
+                ,page: {
+                    curr: 1
+                }
+                ,where: {
+                    id: i
+                }
+            });
+        }
+    });
+</script>
+</body>
+</html>
